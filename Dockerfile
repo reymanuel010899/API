@@ -1,14 +1,12 @@
-# ── Build stage ──────────────────────────────────────────────
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
-# ── Runtime stage ─────────────────────────────────────────────
 FROM node:20-alpine AS runtime
 WORKDIR /app
 
-# Run as non-root for security
+
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=deps /app/node_modules ./node_modules
 COPY src/ ./src/
