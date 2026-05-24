@@ -2,9 +2,15 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - develop
+      - "release/**"
+      - "feature/**"
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - develop
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -43,7 +49,12 @@ jobs:
     name: Build & Push Docker Image
     runs-on: ubuntu-24.04
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: |
+      github.event_name == 'push' &&
+      (
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/heads/release/')
+      )
     permissions:
       contents: read
       packages: write
@@ -69,7 +80,8 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=sha,prefix=sha-
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=match,pattern=release/(.*),group=1
 
       - name: Build and push
         uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6.13.0

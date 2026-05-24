@@ -8,7 +8,7 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.json({
     service: 'devops-api',
-    version: process.env.npm_package_version || '1.0.0',
+    version: process.env.npm_package_version || '1.0.1',
     environment: process.env.NODE_ENV || 'development',
   });
 });

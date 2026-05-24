@@ -37,27 +37,70 @@ npm test
 
 ---
 
+## Branching strategy (Gitflow)
+
+```
+main          ──────────────────────────────●── production
+                                           ↑
+release/x.x   ──────────────────────●──────┘   staging image built
+                                   ↑
+develop       ──────●──────●───────┘            integration
+                   ↑       ↑
+feature/*     ─────┘       └────────            isolated features
+```
+
+| Branch | Pipeline behavior |
+|---|---|
+| `feature/*` | test only |
+| `develop` | test only |
+| `release/*` | test + build + push image tagged with version |
+| `main` | test + build + push (`latest`) + deploy to Render |
+| PR to `develop` or `main` | test only |
+
+### Typical workflow
+
+```bash
+# start a feature
+git checkout develop
+git checkout -b feature/my-feature
+
+# ... code, commit ...
+
+# merge into develop via PR
+git checkout develop
+git merge --no-ff feature/my-feature
+
+# cut a release
+git checkout -b release/1.1.0
+# bump version if needed, final fixes
+git checkout main
+git merge --no-ff release/1.1.0
+git tag v1.1.0
+git checkout develop
+git merge --no-ff release/1.1.0
+```
+
+---
+
 ## CI/CD Pipeline
 
-The pipeline runs on every push to `main` and has three stages:
-
 ```
-push to main
-     │
-     ▼
-┌─────────┐     ┌──────────────────┐     ┌────────────────┐
-│  test   │────▶│ build-and-push   │────▶│    deploy      │
-│         │     │                  │     │                │
-│ npm ci  │     │ docker buildx    │     │ Render webhook │
-│ npm test│     │ push → Docker Hub│     │ pull + restart │
-└─────────┘     └──────────────────┘     └────────────────┘
+feature/* / develop → PR → main
+         │                   │
+         ▼                   ▼
+    ┌─────────┐         ┌─────────┐   ┌──────────────────┐   ┌────────────────┐
+    │  test   │         │  test   │──▶│ build-and-push   │──▶│    deploy      │
+    │ npm ci  │         │ npm ci  │   │ docker buildx    │   │ Render webhook │
+    │ npm test│         │ npm test│   │ push → Docker Hub│   │ pull + restart │
+    └─────────┘         └─────────┘   └──────────────────┘   └────────────────┘
+   (no image push)                         (main only
+                                            tags: latest
+                                            + sha)
 ```
 
-- **test**: installs dependencies, runs Jest with coverage
-- **build-and-push**: builds multi-platform image, tags with `latest` + git SHA, pushes to Docker Hub using GitHub layer cache
-- **deploy**: calls Render deploy hook — Render pulls the new image and restarts the service
-
-Pull requests only run the `test` job (no push, no deploy).
+- **test**: runs on every branch and PR
+- **build-and-push**: runs on `release/*` and `main` — tags image with git SHA; `latest` tag only on `main`; `release/*` tags with version number
+- **deploy**: runs only on `main` — triggers Render to pull the new image and restart
 
 ---
 
